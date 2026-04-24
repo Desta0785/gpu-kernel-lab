@@ -1,0 +1,26 @@
+# Build outputs
+/build/
+/out/
+/bin/
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+compile_commands.json
+
+# Executables
+*.out
+*.exe
+
+# Profiling reports
+/reports/
+*.ncu-rep
+
+# Local tool metadata
+.codex
+
+# OS/editor junk
+.DS_Store
+Thumbs.db
