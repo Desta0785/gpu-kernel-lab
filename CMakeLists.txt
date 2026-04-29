@@ -6,3 +6,6 @@ set(CMAKE_CUDA_STANDARD 17)
 
 add_executable(bench_vectorAdd bench/vectorAdd.cu)
 target_compile_options(bench_vectorAdd PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-O3 -lineinfo>)
+
+add_executable(bench_reduce_sum_baseline bench/reduce_sum_baseline.cu)
+target_compile_options(bench_reduce_sum_baseline PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-O3 -lineinfo>)

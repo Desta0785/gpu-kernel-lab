@@ -20,6 +20,7 @@ compile_commands.json
 
 # Local tool metadata
 .codex
+.vscode/
 
 # OS/editor junk
 .DS_Store
