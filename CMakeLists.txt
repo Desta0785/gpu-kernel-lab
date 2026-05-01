@@ -12,3 +12,6 @@ target_compile_options(bench_reduce_sum_baseline PRIVATE $<$<COMPILE_LANGUAGE:CU
 
 add_executable(bench_reduce_sum_optimized bench/reduce_sum_optimized.cu)
 target_compile_options(bench_reduce_sum_optimized PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-O3 -lineinfo>)
+
+add_executable(bench_transpose_baseline bench/transpose_baseline.cu)
+target_compile_options(bench_transpose_baseline PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-O3 -lineinfo>)
