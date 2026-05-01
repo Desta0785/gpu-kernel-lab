@@ -9,3 +9,6 @@ target_compile_options(bench_vectorAdd PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-O3 -l
 
 add_executable(bench_reduce_sum_baseline bench/reduce_sum_baseline.cu)
 target_compile_options(bench_reduce_sum_baseline PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-O3 -lineinfo>)
+
+add_executable(bench_reduce_sum_optimized bench/reduce_sum_optimized.cu)
+target_compile_options(bench_reduce_sum_optimized PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-O3 -lineinfo>)
