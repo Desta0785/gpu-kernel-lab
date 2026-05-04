@@ -7,11 +7,11 @@ set(CMAKE_CUDA_STANDARD 17)
 add_executable(bench_vectorAdd bench/vectorAdd.cu)
 target_compile_options(bench_vectorAdd PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-O3 -lineinfo>)
 
-add_executable(bench_reduce_sum_baseline bench/reduce_sum_baseline.cu)
-target_compile_options(bench_reduce_sum_baseline PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-O3 -lineinfo>)
+add_executable(bench_reduce_sum_benchmark bench/reduce_sum_benchmark.cu)
+target_compile_options(bench_reduce_sum_benchmark PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-O3 -lineinfo>)
 
-add_executable(bench_reduce_sum_optimized bench/reduce_sum_optimized.cu)
-target_compile_options(bench_reduce_sum_optimized PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-O3 -lineinfo>)
+add_executable(bench_transpose_benchmark bench/transpose_benchmark.cu)
+target_compile_options(bench_transpose_benchmark PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-O3 -lineinfo>)
 
-add_executable(bench_transpose_baseline bench/transpose_baseline.cu)
-target_compile_options(bench_transpose_baseline PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-O3 -lineinfo>)
+add_executable(bench_softmax_benchmark bench/softmax_benchmark.cu)
+target_compile_options(bench_softmax_benchmark PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-O3 -lineinfo>)

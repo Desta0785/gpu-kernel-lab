@@ -90,15 +90,19 @@ float benchmark_kernel(
     cuda_check(cudaEventCreate(&start), "cudaEventCreate(start)");
     cuda_check(cudaEventCreate(&stop), "cudaEventCreate(stop)");
 
-    const dim3 block(kTileDim, kBlockRows);
-    const dim3 grid(
+    const dim3 tiled_block(kTileDim, kBlockRows);
+    const dim3 tiled_grid(
         (cols + kTileDim - 1) / kTileDim,
         (rows + kTileDim - 1) / kTileDim);
+    const dim3 naive_block(kTileDim, kBlockRows);
+    const dim3 naive_grid(
+        (cols + naive_block.x - 1) / naive_block.x,
+        (rows + naive_block.y - 1) / naive_block.y);
 
     if (name == "naive") {
-        transpose_naive_kernel<<<grid, block>>>(d_input, d_output, rows, cols);
+        transpose_naive_kernel<<<naive_grid, naive_block>>>(d_input, d_output, rows, cols);
     } else {
-        transpose_tiled_kernel<<<grid, block>>>(d_input, d_output, rows, cols);
+        transpose_tiled_kernel<<<tiled_grid, tiled_block>>>(d_input, d_output, rows, cols);
     }
     cuda_check(cudaGetLastError(), "warmup kernel launch");
     cuda_check(cudaDeviceSynchronize(), "warmup cudaDeviceSynchronize");
@@ -106,9 +110,9 @@ float benchmark_kernel(
     cuda_check(cudaEventRecord(start), "cudaEventRecord(start)");
     for (int i = 0; i < iterations; ++i) {
         if (name == "naive") {
-            transpose_naive_kernel<<<grid, block>>>(d_input, d_output, rows, cols);
+            transpose_naive_kernel<<<naive_grid, naive_block>>>(d_input, d_output, rows, cols);
         } else {
-            transpose_tiled_kernel<<<grid, block>>>(d_input, d_output, rows, cols);
+            transpose_tiled_kernel<<<tiled_grid, tiled_block>>>(d_input, d_output, rows, cols);
         }
     }
     cuda_check(cudaGetLastError(), "benchmark kernel launch");
