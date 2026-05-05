@@ -1,4 +1,4 @@
-#include <cuda_runtime.h>
+#include <hip/hip_runtime.h>
 
 #include <cmath>
 #include <cstdlib>
@@ -12,9 +12,9 @@ namespace {
 constexpr int kTileDim = 32;
 constexpr int kBlockRows = 8;
 
-void cuda_check(cudaError_t error, const char* message) {
-    if (error != cudaSuccess) {
-        std::cerr << message << ": " << cudaGetErrorString(error) << "\n";
+void hip_check(hipError_t error, const char* message) {
+    if (error != hipSuccess) {
+        std::cerr << message << ": " << hipGetErrorString(error) << "\n";
         std::exit(1);
     }
 }
@@ -85,45 +85,82 @@ float benchmark_kernel(
     int cols,
     int iterations)
 {
-    cudaEvent_t start{};
-    cudaEvent_t stop{};
-    cuda_check(cudaEventCreate(&start), "cudaEventCreate(start)");
-    cuda_check(cudaEventCreate(&stop), "cudaEventCreate(stop)");
+    hipEvent_t start{};
+    hipEvent_t stop{};
+    hip_check(hipEventCreate(&start), "hipEventCreate(start)");
+    hip_check(hipEventCreate(&stop), "hipEventCreate(stop)");
 
     const dim3 tiled_block(kTileDim, kBlockRows);
     const dim3 tiled_grid(
         (cols + kTileDim - 1) / kTileDim,
         (rows + kTileDim - 1) / kTileDim);
+
     const dim3 naive_block(kTileDim, kBlockRows);
     const dim3 naive_grid(
         (cols + naive_block.x - 1) / naive_block.x,
         (rows + naive_block.y - 1) / naive_block.y);
 
     if (name == "naive") {
-        transpose_naive_kernel<<<naive_grid, naive_block>>>(d_input, d_output, rows, cols);
+        hipLaunchKernelGGL(
+            transpose_naive_kernel,
+            naive_grid,
+            naive_block,
+            0,
+            0,
+            d_input,
+            d_output,
+            rows,
+            cols);
     } else {
-        transpose_tiled_kernel<<<tiled_grid, tiled_block>>>(d_input, d_output, rows, cols);
+        hipLaunchKernelGGL(
+            transpose_tiled_kernel,
+            tiled_grid,
+            tiled_block,
+            0,
+            0,
+            d_input,
+            d_output,
+            rows,
+            cols);
     }
-    cuda_check(cudaGetLastError(), "warmup kernel launch");
-    cuda_check(cudaDeviceSynchronize(), "warmup cudaDeviceSynchronize");
+    hip_check(hipGetLastError(), "warmup kernel launch");
+    hip_check(hipDeviceSynchronize(), "warmup hipDeviceSynchronize");
 
-    cuda_check(cudaEventRecord(start), "cudaEventRecord(start)");
+    hip_check(hipEventRecord(start), "hipEventRecord(start)");
     for (int i = 0; i < iterations; ++i) {
         if (name == "naive") {
-            transpose_naive_kernel<<<naive_grid, naive_block>>>(d_input, d_output, rows, cols);
+            hipLaunchKernelGGL(
+                transpose_naive_kernel,
+                naive_grid,
+                naive_block,
+                0,
+                0,
+                d_input,
+                d_output,
+                rows,
+                cols);
         } else {
-            transpose_tiled_kernel<<<tiled_grid, tiled_block>>>(d_input, d_output, rows, cols);
+            hipLaunchKernelGGL(
+                transpose_tiled_kernel,
+                tiled_grid,
+                tiled_block,
+                0,
+                0,
+                d_input,
+                d_output,
+                rows,
+                cols);
         }
     }
-    cuda_check(cudaGetLastError(), "benchmark kernel launch");
-    cuda_check(cudaEventRecord(stop), "cudaEventRecord(stop)");
-    cuda_check(cudaEventSynchronize(stop), "cudaEventSynchronize(stop)");
+    hip_check(hipGetLastError(), "benchmark kernel launch");
+    hip_check(hipEventRecord(stop), "hipEventRecord(stop)");
+    hip_check(hipEventSynchronize(stop), "hipEventSynchronize(stop)");
 
     float total_ms = 0.0f;
-    cuda_check(cudaEventElapsedTime(&total_ms, start, stop), "cudaEventElapsedTime");
+    hip_check(hipEventElapsedTime(&total_ms, start, stop), "hipEventElapsedTime");
 
-    cuda_check(cudaEventDestroy(start), "cudaEventDestroy(start)");
-    cuda_check(cudaEventDestroy(stop), "cudaEventDestroy(stop)");
+    hip_check(hipEventDestroy(start), "hipEventDestroy(start)");
+    hip_check(hipEventDestroy(stop), "hipEventDestroy(stop)");
 
     return total_ms / static_cast<float>(iterations);
 }
@@ -165,24 +202,26 @@ void run_case(int rows, int cols) {
 
     float* d_input = nullptr;
     float* d_output = nullptr;
-    cuda_check(cudaMalloc(&d_input, num_bytes), "cudaMalloc(d_input)");
-    cuda_check(cudaMalloc(&d_output, num_bytes), "cudaMalloc(d_output)");
-    cuda_check(cudaMemcpy(d_input, h_input.data(), num_bytes, cudaMemcpyHostToDevice),
-               "cudaMemcpy(input H2D)");
+    hip_check(hipMalloc(&d_input, num_bytes), "hipMalloc(d_input)");
+    hip_check(hipMalloc(&d_output, num_bytes), "hipMalloc(d_output)");
+    hip_check(
+        hipMemcpy(d_input, h_input.data(), num_bytes, hipMemcpyHostToDevice),
+        "hipMemcpy(input H2D)");
 
-    const bool profile_mode = std::getenv("PROFILE_MODE") != nullptr;
-    const int iterations = profile_mode ? 1 : 100;
+    const int iterations = 100;
 
     const float naive_ms = benchmark_kernel("naive", d_input, d_output, rows, cols, iterations);
-    cuda_check(cudaMemcpy(h_actual.data(), d_output, num_bytes, cudaMemcpyDeviceToHost),
-               "cudaMemcpy(naive D2H)");
+    hip_check(
+        hipMemcpy(h_actual.data(), d_output, num_bytes, hipMemcpyDeviceToHost),
+        "hipMemcpy(naive D2H)");
     if (!check_correctness(h_expected, h_actual)) {
         std::exit(1);
     }
 
     const float tiled_ms = benchmark_kernel("tiled", d_input, d_output, rows, cols, iterations);
-    cuda_check(cudaMemcpy(h_actual.data(), d_output, num_bytes, cudaMemcpyDeviceToHost),
-               "cudaMemcpy(tiled D2H)");
+    hip_check(
+        hipMemcpy(h_actual.data(), d_output, num_bytes, hipMemcpyDeviceToHost),
+        "hipMemcpy(tiled D2H)");
     if (!check_correctness(h_expected, h_actual)) {
         std::exit(1);
     }
@@ -200,17 +239,14 @@ void run_case(int rows, int cols) {
               << " tiled_GBps=" << tiled_gbps
               << " speedup=" << speedup << "x\n";
 
-    cuda_check(cudaFree(d_input), "cudaFree(d_input)");
-    cuda_check(cudaFree(d_output), "cudaFree(d_output)");
+    hip_check(hipFree(d_input), "hipFree(d_input)");
+    hip_check(hipFree(d_output), "hipFree(d_output)");
 }
 
 } // namespace
 
 int main() {
-    const bool profile_mode = std::getenv("PROFILE_MODE") != nullptr;
-    std::vector<std::pair<int, int>> test_cases = profile_mode ? std::vector<std::pair<int, int>>{
-        {2048, 2048},
-    } : std::vector<std::pair<int, int>>{
+    std::vector<std::pair<int, int>> test_cases = {
         {1024, 1024},
         {2048, 2048},
         {4096, 4096},
@@ -221,6 +257,6 @@ int main() {
         run_case(rows, cols);
     }
 
-    std::cout << "All transpose tests passed.\n";
+    std::cout << "All HIP transpose tests passed.\n";
     return 0;
 }

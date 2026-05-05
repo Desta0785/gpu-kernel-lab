@@ -147,19 +147,49 @@ All softmax tests passed.
 
 ## Nsight Compute Metrics to Collect
 
-Suggested command:
+Profiler commands used:
 
 ```bash
-ncu --set full --target-processes all -o reports/softmax ./build/bench_softmax_benchmark
+PROFILE_MODE=1 ncu --set full --target-processes all --launch-count 1 \
+  --kernel-name regex:softmax_baseline_kernel \
+  --force-overwrite -o reports/ncu/softmax_baseline \
+  ./build/bench_softmax_benchmark
+
+PROFILE_MODE=1 ncu --set full --target-processes all --launch-count 1 \
+  --kernel-name regex:softmax_warp_kernel \
+  --force-overwrite -o reports/ncu/softmax_warp \
+  ./build/bench_softmax_benchmark
+
+PROFILE_MODE=1 ncu --set full --target-processes all --launch-count 1 \
+  --kernel-name regex:softmax_warp_float4_kernel \
+  --force-overwrite -o reports/ncu/softmax_float4 \
+  ./build/bench_softmax_benchmark
 ```
 
-Useful metrics to discuss:
+Generated local reports:
 
-- memory throughput
-- achieved occupancy
-- warp stall reasons
-- shared memory usage
-- instruction throughput
+```text
+reports/ncu/softmax_baseline.ncu-rep
+reports/ncu/softmax_warp.ncu-rep
+reports/ncu/softmax_float4.ncu-rep
+```
+
+## Profiler Evidence
+
+Nsight Compute was run with `PROFILE_MODE=1`, which profiles a representative `4096 x 1024` case with one benchmark iteration.
+
+| Kernel | Duration | Memory Throughput | Compute Throughput | Achieved Occupancy | Grid Size | Registers / Thread | Dynamic Shared Memory / Block |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| Baseline block-level softmax | 38.62 us | 457.94 GB/s | 65.62% | 92.72% | 4096 | 22 | 1.02 KB |
+| Warp-level softmax | 44.13 us | 381.34 GB/s | 17.83% | 93.95% | 512 | 38 | 0 B |
+| Warp + `float4` softmax | 41.89 us | 428.78 GB/s | 15.85% | 93.09% | 512 | 38 | 0 B |
+
+### Interpretation
+
+- The warp-level kernels remove dynamic shared-memory usage for row reductions, but they also use more registers per thread: `22` to `38`.
+- The baseline block-level version has higher compute throughput for this shape because one row is processed by a full block instead of a single warp.
+- The `float4` version improves over the plain warp version in this profile: `44.13 us` to `41.89 us`, and `381.34 GB/s` to `428.78 GB/s`.
+- The profiler evidence supports the benchmark observation that softmax optimization is shape-dependent. Warp-level reductions reduce synchronization and shared-memory usage, but they do not always outperform a strong block-level baseline for larger rows.
 
 ## Takeaways
 

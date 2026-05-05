@@ -209,7 +209,8 @@ void run_case(int n) {
     cuda_check(cudaMemcpy(d_input, h_input.data(), input_bytes, cudaMemcpyHostToDevice),
                "cudaMemcpy input H2D");
 
-    int iterations = (n < (1 << 20)) ? 100 : 30;
+    const bool profile_mode = std::getenv("PROFILE_MODE") != nullptr;
+    int iterations = profile_mode ? 1 : ((n < (1 << 20)) ? 100 : 30);
 
     auto launch_baseline = [](const float* input, float* partial, int n_value, int grid) {
         size_t shared_bytes = kBlockSize * sizeof(float);
@@ -259,7 +260,8 @@ int main() {
     std::cout << std::fixed << std::setprecision(4);
     std::cout << "Reduce sum benchmark and correctness\n\n";
 
-    const std::vector<int> test_sizes = {
+    const bool profile_mode = std::getenv("PROFILE_MODE") != nullptr;
+    const std::vector<int> test_sizes = profile_mode ? std::vector<int>{1 << 24} : std::vector<int>{
         1,
         17,
         255,

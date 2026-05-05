@@ -342,7 +342,10 @@ static double effective_gbps(int rows, int cols, float ms) {
 }
 
 int main() {
-    const std::vector<std::pair<int, int>> shapes = {
+    const bool profile_mode = std::getenv("PROFILE_MODE") != nullptr;
+    const std::vector<std::pair<int, int>> shapes = profile_mode ? std::vector<std::pair<int, int>>{
+        {4096, 1024},
+    } : std::vector<std::pair<int, int>>{
         {1, 16},
         {4, 128},
         {128, 256},
@@ -376,7 +379,7 @@ int main() {
         cuda_check(cudaMalloc(&d_output, bytes), "cudaMalloc d_output");
         cuda_check(cudaMemcpy(d_input, h_input.data(), bytes, cudaMemcpyHostToDevice), "cudaMemcpy H2D");
 
-        int iterations = (n <= 1024 * 1024) ? 100 : 30;
+        int iterations = profile_mode ? 1 : ((n <= 1024 * 1024) ? 100 : 30);
 
         float baseline_ms = time_baseline(d_output, d_input, rows, cols, iterations);
         cuda_check(cudaMemcpy(h_output.data(), d_output, bytes, cudaMemcpyDeviceToHost), "baseline D2H");
